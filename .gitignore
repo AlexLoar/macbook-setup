@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Logs & reports
+*.log
+install.log
+
+# Secrets / credentials
+*.pem
+*.key
+*.crt
+*.env
+*.secrets.*
+
+# VSCode
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
