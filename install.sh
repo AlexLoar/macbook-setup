@@ -7,8 +7,12 @@ log()  { echo -e "${GREEN}==> $1${NC}"; }
 warn() { echo -e "${YELLOW}WARNING: $1${NC}"; }
 
 check_macos()   { [[ $(uname) == Darwin ]] || { echo -e "${RED}ERROR: macOS only${NC}"; exit 1; }; }
-check_rosetta() { [[ $(uname -m) == arm64 && ! $(pgrep -q oahd) ]] && \
-                  { log "Installing Rosetta 2…"; softwareupdate --install-rosetta --agree-to-license; }; }
+check_rosetta() {
+  if [[ $(uname -m) == arm64 ]] && ! pgrep -q oahd; then
+    log "Installing Rosetta 2…"
+    softwareupdate --install-rosetta --agree-to-license
+  fi
+}
 
 install_homebrew() {
   if ! command -v brew &>/dev/null; then
@@ -45,6 +49,50 @@ install_gui_apps() {
   for c in "${casks[@]}"; do
     brew list --cask | grep -q "^$c$" && log "✓ $c" || { log "Installing $c"; brew install --cask "$c"; }
   done
+}
+
+setup_iterm2() {
+  log "Configuring iTerm2 (no close prompts + Dark theme)…"
+
+  local DOMAIN="com.googlecode.iterm2"
+  local PREFS_DIR="" TARGET=""
+  local has_app=false
+
+  [[ -d "/Applications/iTerm.app" || -d "$HOME/Applications/iTerm.app" ]] && has_app=true
+  if command -v brew &>/dev/null; then
+    brew list --cask 2>/dev/null | grep -q '^iterm2$' && has_app=true
+  fi
+
+  if [[ "$(defaults read "$DOMAIN" LoadPrefsFromCustomFolder 2>/dev/null || echo 0)" == "1" ]]; then
+    PREFS_DIR="$(defaults read "$DOMAIN" PrefsCustomFolder 2>/dev/null || echo "")"
+  fi
+  if [[ -n "$PREFS_DIR" && -d "$PREFS_DIR" ]]; then
+    TARGET="$PREFS_DIR/$DOMAIN.plist"
+    log "Using custom prefs at: $TARGET"
+  else
+    TARGET="$DOMAIN"
+    log "Using prefs domain: $DOMAIN"
+  fi
+
+  write() { defaults write "$TARGET" "$1" "${@:2}"; }
+
+  # Disable close/quit confirmation prompts
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    read -r -a parts <<< "$line"
+    write "${parts[@]}" || warn "Failed to set: $line"
+  done <<'EOF'
+PromptOnQuit -bool false
+PromptOnClose -int 0
+ConfirmClosingMultipleTabs -bool false
+ConfirmClosingMultipleWindows -bool false
+EOF
+
+  # Prefer iTerm2 Dark UI theme
+  write Theme -string "Dark" 2>/dev/null || \
+    warn "iTerm2 'Theme' key not supported; it may follow macOS appearance"
+
+  log "✓ iTerm2 configured"
 }
 
 install_claude_code() {
@@ -97,8 +145,17 @@ EOF
   [[ $SHELL == /bin/zsh ]] || { log "Changing default shell to zsh"; chsh -s /bin/zsh; }
 }
 
-setup_screenshots_folder() { log "Redirecting screenshots to ~/Screenshots"; mkdir -p ~/Screenshots; defaults write com.apple.screencapture location ~/Screenshots; killall SystemUIServer; }
-setup_macos_preferences() { log "Tweaking macOS prefs (Finder path bar on)"; defaults write com.apple.finder ShowPathbar -bool true; killall Finder; }
+setup_screenshots_folder() {
+  log "Redirecting screenshots to ~/Screenshots"
+  mkdir -p ~/Screenshots
+  defaults write com.apple.screencapture location ~/Screenshots
+  killall SystemUIServer || true
+}
+setup_macos_preferences() {
+  log "Tweaking macOS prefs (Finder path bar on)"
+  defaults write com.apple.finder ShowPathbar -bool true
+  killall Finder || true
+}
 
 setup_git() {
   log "Configuring Git…"
@@ -183,6 +240,7 @@ main() {
   install_homebrew
   install_cli_tools
   install_gui_apps
+  setup_iterm2
   install_claude_code
   setup_zsh
   setup_screenshots_folder
