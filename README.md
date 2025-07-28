@@ -60,6 +60,10 @@ chmod +x setup.sh
 - Screenshots saved to `~/Screenshots`
 - Shows path bar in Finder
 
+### iTerm2
+- Custom profile with optimized settings
+- Enhanced color scheme and transparency
+
 ## 🛠️ Requirements
 
 - macOS (Intel or Apple Silicon)
@@ -107,4 +111,4 @@ MIT License - Feel free to modify and share
 
 ---
 
-**Author**: [AlexLoar](https://github.com/AlexLoar)
+**Author**: [Álex López](https://github.com/AlexLoar)
