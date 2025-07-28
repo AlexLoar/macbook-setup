@@ -40,7 +40,7 @@ install_gui_apps() {
   local casks=(
     brave-browser google-chrome rectangle chatgpt the-unarchiver vlc spotify keepassxc
     google-drive whatsapp telegram iterm2 calibre sublime-text slack visual-studio-code
-    libreoffice docker raycast stats
+    libreoffice raycast stats
   )
   for c in "${casks[@]}"; do
     brew list --cask | grep -q "^$c$" && log "✓ $c" || { log "Installing $c"; brew install --cask "$c"; }
@@ -91,7 +91,6 @@ alias ll='ls -la'
 alias la='ls -la'
 alias py='python3'
 alias pip='pip3'
-alias dc='docker compose'
 # <<< macbook-setup <<<
 EOF
   fi
@@ -122,14 +121,24 @@ setup_git() {
 
   git config --global user.name  "$git_name"
   git config --global user.email "$git_email"
-  git config --global pull.rebase false init.defaultBranch main color.ui auto core.editor vi
+  git config --global pull.rebase false
+  git config --global init.defaultBranch main
+  git config --global color.ui auto
+  git config --global core.editor vi
 
-  git config --global alias.st 'status -sb' alias.ci commit alias.co checkout alias.br branch
-  git config --global alias.last 'log -1 HEAD --stat' alias.unstage 'restore --staged'
+  git config --global alias.st 'status -sb'
+  git config --global alias.ci commit
+  git config --global alias.co checkout
+  git config --global alias.br branch
+  git config --global alias.last 'log -1 HEAD --stat'
+  git config --global alias.unstage 'restore --staged'
   git config --global alias.lg "log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
-  git config --global alias.undo 'reset HEAD~1 --mixed' alias.amend 'commit -a --amend'
+  git config --global alias.undo 'reset HEAD~1 --mixed'
+  git config --global alias.amend 'commit -a --amend'
 
-  git config --global diff.algorithm histogram merge.conflictstyle diff3 credential.helper osxkeychain
+  git config --global diff.algorithm histogram
+  git config --global merge.conflictstyle diff3
+  git config --global credential.helper osxkeychain
   log "✓ Git configured"
 }
 
