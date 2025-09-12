@@ -183,7 +183,7 @@ setup_git() {
   git config --global color.ui auto
   git config --global core.editor vi
 
-  git config --global alias.st 'status -sb'
+  git config --global alias.st 'status'
   git config --global alias.ci commit
   git config --global alias.co checkout
   git config --global alias.br branch
@@ -191,7 +191,7 @@ setup_git() {
   git config --global alias.unstage 'restore --staged'
   git config --global alias.lg "log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
   git config --global alias.undo 'reset HEAD~1 --mixed'
-  git config --global alias.amend 'commit -a --amend'
+  git config --global alias.amend 'commit --amend'
 
   git config --global diff.algorithm histogram
   git config --global merge.conflictstyle diff3
