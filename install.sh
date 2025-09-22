@@ -142,6 +142,35 @@ alias pip='pip3'
 # <<< macbook-setup <<<
 EOF
   fi
+
+  # ---- Add update-mac() helper if missing ----
+  if ! grep -q "update-mac()" ~/.zshrc; then
+cat >> ~/.zshrc << 'EOF'
+
+# Homebrew update helper
+update-mac() {
+  local start=$(date +%s)
+
+  echo "🔄 Updating Homebrew formulas and casks..."
+  brew update
+
+  echo "⬆️  Upgrading apps..."
+  brew upgrade
+
+  echo "🧹 Cleaning up old versions..."
+  brew cleanup
+
+  local end=$(date +%s)
+  local duration=$((end - start))
+
+  echo "✅ All apps are up to date in ${duration}s 🚀"
+}
+EOF
+    log "Added update-mac() to ~/.zshrc"
+  else
+    log "update-mac() already present in ~/.zshrc"
+  fi
+
   [[ $SHELL == /bin/zsh ]] || { log "Changing default shell to zsh"; chsh -s /bin/zsh; }
 }
 
