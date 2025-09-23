@@ -96,26 +96,88 @@ EOF
 }
 
 install_claude_code() {
-  log "Installing Claude Code CLI…"
+  log "Installing Claude Code CLI…"
   if command -v claude &>/dev/null; then
-    log "✓ Claude Code already installed"
+    log "✓ Claude Code already installed"
     return
   fi
   if ! command -v node &>/dev/null; then
-    warn "Node.js not found, Claude Code skipped"
+    warn "Node.js not found, Claude Code skipped"
     return
   fi
   npm install -g @anthropic-ai/claude-code
-  command -v claude &>/dev/null && log "✓ Claude Code installed" \
-    || warn "Claude Code installation failed"
+  command -v claude &>/dev/null && log "✓ Claude Code installed" \
+    || warn "Claude Code installation failed"
+}
+
+wait_for_app() { # wait_for_app "Raycast" 5
+  local app="$1" timeout="${2:-5}" i=0
+  while ! pgrep -x "$app" >/dev/null 2>&1; do
+    (( i++ >= timeout )) && return 1
+    sleep 1
+  done
+  return 0
+}
+
+setup_raycast() {
+  log "Setting up Raycast with ⌘ + Space…"
+
+  if ! brew list --cask | grep -q '^raycast$' && [[ ! -d "/Applications/Raycast.app" && ! -d "$HOME/Applications/Raycast.app" ]]; then
+    warn "Raycast not installed, skipping configuration"
+    return
+  fi
+
+  defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict || true
+
+  log "Disabling Spotlight keyboard shortcuts…"
+  defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 64 '{
+    enabled = 0;
+    value = {
+      parameters = (32, 49, 1048576);
+      type = "standard";
+    };
+  }' || warn "Failed to disable Spotlight hotkey (ID 64)"
+
+  defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 65 '{
+    enabled = 0;
+    value = {
+      parameters = (32, 49, 1572864);
+      type = "standard";
+    };
+  }' || warn "Failed to disable Spotlight hotkey (ID 65)"
+
+  killall Dock || true
+
+  log "Opening Raycast Preferences so you can assign ⌘ + Space…"
+  open -g -a "Raycast" 2>/dev/null || warn "Could not open Raycast automatically"
+  wait_for_app "Raycast" 5 || warn "Raycast did not appear; open it manually to set the hotkey"
+
+  /usr/bin/osascript <<'OSA' 2>/dev/null || true
+tell application "System Events"
+  try
+    if application process "Raycast" exists then
+      tell application process "Raycast"
+        set frontmost to true
+        delay 0.2
+        key code 43 using {command down} -- ⌘ + ,
+      end tell
+    end if
+  end try
+end tell
+OSA
+
+  log "✓ Spotlight shortcuts disabled."
+  log "  Now set Raycast Hotkey to ⌘ + Space: Raycast → Preferences → Hotkey."
+  warn "If macOS blocks keystrokes, grant Accessibility permissions to your terminal app in System Settings → Privacy & Security → Accessibility."
 }
 
 setup_zsh() {
   log "Setting up Zsh & plugins…"
-  [[ -d ~/.oh-my-zsh ]] || { log "Installing oh‑my‑zsh…"; sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; }
+  [[ -d ~/.oh-my-zsh ]] || { log "Installing oh-my-zsh…"; sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; }
   local ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
   for repo in zsh-users/{zsh-autosuggestions,zsh-syntax-highlighting,zsh-completions}; do
-    local name=$(basename "$repo")
+    local name
+    name=$(basename "$repo")
     [[ -d $ZSH_CUSTOM/plugins/$name ]] || git clone "https://github.com/$repo.git" "$ZSH_CUSTOM/plugins/$name"
   done
   grep -q "zsh-autosuggestions" ~/.zshrc || \
@@ -180,6 +242,7 @@ setup_screenshots_folder() {
   defaults write com.apple.screencapture location ~/Screenshots
   killall SystemUIServer || true
 }
+
 setup_macos_preferences() {
   log "Tweaking macOS prefs (Finder path bar on)"
   defaults write com.apple.finder ShowPathbar -bool true
@@ -248,19 +311,20 @@ EOF
 }
 
 install_vscode_extensions() {
-  log "Ensuring VS Code CLI…"
+  log "Ensuring VS Code CLI…"
   open -g -a "Visual Studio Code" || true
   for _ in {1..15}; do command -v code &>/dev/null && break || sleep 2; done
-  command -v code &>/dev/null || { warn "'code' CLI not found; install it via VS Code → Command Palette → Shell Command: Install 'code' command in PATH"; return; }
+  command -v code &>/dev/null || { warn "'code' CLI not found; install it via VS Code → Command Palette → Shell Command: Install 'code' command in PATH"; return; }
   local exts=(ms-python.python ms-python.vscode-pylance batisteo.vscode-django bibhasdn.django-html charliermarsh.ruff)
   for e in "${exts[@]}"; do code --install-extension "$e" --force && log "✓ $e"; done
 }
 
 show_summary() {
-  echo; log "🎉 Setup finished"; echo
+  echo; log "🎉 Setup finished"; echo
   echo "• Restart terminal ⇒  source ~/.zshrc"
-  echo "• PostgreSQL 5432 | Redis 6379 running | Claude Code CLI available as 'claude'"
-  warn "You may need to log out/in for some changes"
+  echo "• PostgreSQL 5432 | Redis 6379 running | Claude Code CLI available as 'claude'"
+  echo "• Spotlight disabled — manually set Raycast hotkey to ⌘ + Space in Raycast Preferences (Hotkey)"
+  warn "You may need to log out/in for keyboard shortcut changes to take effect"
 }
 
 main() {
@@ -271,6 +335,7 @@ main() {
   install_gui_apps
   setup_iterm2
   install_claude_code
+  setup_raycast
   setup_zsh
   setup_screenshots_folder
   setup_macos_preferences
