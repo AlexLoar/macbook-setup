@@ -26,7 +26,7 @@ install_homebrew() {
 
 install_cli_tools() {
   log "Installing CLI tools…"
-  local formulas=(htop poetry uv python@3.12 zsh git docker postgresql@16 redis node wget tree jq gh)
+  local formulas=(htop poetry uv python@3.12 zsh git git-delta docker postgresql@16 redis node wget tree jq gh)
   for f in "${formulas[@]}"; do
     brew list --formula | grep -q "^${f}$" && log "✓ $f" || { log "Installing $f"; brew install "$f"; }
   done
@@ -288,6 +288,20 @@ setup_git() {
   git config --global diff.algorithm histogram
   git config --global merge.conflictstyle diff3
   git config --global credential.helper osxkeychain
+
+  # Configure Delta as Git pager if installed
+  if command -v delta &>/dev/null; then
+    log "Configuring Delta for beautiful Git diffs…"
+    git config --global core.pager delta
+    git config --global interactive.diffFilter 'delta --color-only'
+    git config --global delta.navigate true
+    git config --global delta.dark true
+    git config --global delta.line-numbers true
+    git config --global delta.hyperlinks true
+    git config --global delta.side-by-side true
+    log "✓ Delta configured as Git pager"
+  fi
+
   log "✓ Git configured"
 }
 
