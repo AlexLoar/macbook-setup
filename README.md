@@ -1,6 +1,6 @@
 # macOS Setup Script
 
-An automated script to set up a new MacBook with development tools and essential applications.
+An automated script to set up a new MacBook with development tools, essential applications, and useful configurations.
 
 ## 🚀 Quick Install
 
@@ -21,18 +21,18 @@ chmod +x setup.sh
 
 ### CLI Tools
 - **Package managers**: Homebrew, Poetry, uv
-- **Development**: Python 3.12, Node.js 18+, Git, Docker, GitHub CLI, Claude Code CLI
+- **Development**: Python 3.12, Node.js 18+, Git, Docker (CLI), GitHub CLI, Claude Code CLI
 - **Databases**: PostgreSQL 16, Redis
-- **Utilities**: htop, wget, tree, jq
+- **Utilities**: htop, wget, tree, jq, git-delta
 - **Shell**: Zsh with Oh My Zsh and plugins
 
 ### GUI Applications
 - **Browsers**: Brave, Chrome
-- **Productivity**: Rectangle, Raycast, Stats
+- **Productivity**: Rectangle, Raycast, Stats, Google Drive
 - **Communication**: Slack, WhatsApp, Telegram
-- **Development**: VS Code, iTerm2, Sublime Text, Docker Desktop
+- **Development**: VS Code, iTerm2, Sublime Text
 - **Multimedia**: VLC, Spotify
-- **Others**: KeePassXC, Calibre, LibreOffice
+- **Others**: KeePassXC, Calibre, LibreOffice, ChatGPT, The Unarchiver  
 
 ### VS Code Extensions
 - Python, Pylance
@@ -43,7 +43,8 @@ chmod +x setup.sh
 
 ### Git
 - Default branch: `main`
-- Useful aliases: `st`, `ci`, `co`, `br`, `lg`, `undo`
+- Aliases: `st`, `ci`, `co`, `br`, `last`, `unstage`, `lg`, `undo`, `amend`  
+- Uses [delta](https://github.com/dandavison/delta) for improved diffs if installed  
 
 ### SSH
 - Generates Ed25519 key
@@ -54,7 +55,8 @@ chmod +x setup.sh
 - Timestamped history
 - Enhanced directory navigation
 - No duplicates in history
-- Aliases: `ll`, `py`, `pip`, `dc` (docker compose)
+- Aliases: `ll`, `la`, `py`, `pip`  
+- Adds `update-mac()` helper to update and clean Homebrew in one command  
 
 ### macOS
 - Screenshots saved to `~/Screenshots`
@@ -63,6 +65,10 @@ chmod +x setup.sh
 ### iTerm2
 - Custom profile with optimized settings
 - Enhanced color scheme and transparency
+
+### Raycast
+- Disables Spotlight shortcuts  
+- Opens Raycast Preferences so you can set ⌘ + Space as hotkey
 
 ## 🛠️ Requirements
 
@@ -84,7 +90,7 @@ chmod +x setup.sh
 3. **VS Code**: If the `code` command doesn't work, install it from VS Code:
    - `Cmd+Shift+P` → "Shell Command: Install 'code' command in PATH"
 4. **Claude Code**: Run `claude login` to configure the CLI
-5. **Raycast**: Set it up as Spotlight replacement
+5. **Raycast**: Assign ⌘ + Space as its hotkey in Preferences
 6. **Rectangle**: Configure your preferred keyboard shortcuts
 
 ## 🔍 Troubleshooting
