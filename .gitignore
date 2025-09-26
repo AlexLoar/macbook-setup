@@ -19,3 +19,6 @@ install.log
 __pycache__/
 *.py[cod]
 venv/
+
+# JetBrains
+.idea/
