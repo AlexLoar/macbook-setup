@@ -68,7 +68,15 @@ chmod +x setup.sh
 
 ### Raycast
 - Disables Spotlight shortcuts  
-- Opens Raycast Preferences so you can set ⌘ + Space as hotkey
+- Opens Raycast Preferences so you can set ⌘ + Space as hotkey 
+
+### Login Items (auto-start apps)
+The following applications are added to **System Settings → General → Login Items**:
+- DisplayLink Manager  
+- Google Drive   
+- KeePassXC   
+- Rectangle   
+- Raycast 
 
 ## 🛠️ Requirements
 
@@ -78,10 +86,11 @@ chmod +x setup.sh
 
 ## 📝 Notes
 
-- **Apple Silicon**: The script automatically installs Rosetta 2 if needed
+- **Apple Silicon**: Installs Rosetta 2 automatically if needed
 - **Services**: PostgreSQL (port 5432) and Redis (port 6379) start automatically
 - **SSH**: If an SSH key already exists, it's preserved and just copied to clipboard
 - **Idempotent**: The script can be run multiple times without duplicating configurations
+- **Permissions**: Adding login items may require confirming macOS privacy (TCC) prompts
 
 ## ⚠️ Post-installation
 

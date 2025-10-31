@@ -19,7 +19,9 @@ install_homebrew() {
     log "Installing Homebrew…"
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     [[ $(uname -m) == arm64 ]] && { echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile; eval "$(/opt/homebrew/bin/brew shellenv)"; }
-  else log "Homebrew already installed"; fi
+  else
+    log "Homebrew already installed"
+  fi
   brew analytics off
   log "Updating Homebrew…"; brew update && brew upgrade
 }
@@ -44,7 +46,7 @@ install_gui_apps() {
   local casks=(
     brave-browser google-chrome rectangle chatgpt the-unarchiver vlc spotify keepassxc
     google-drive whatsapp telegram iterm2 calibre sublime-text slack visual-studio-code
-    libreoffice raycast stats
+    libreoffice raycast stats displaylink
   )
   for c in "${casks[@]}"; do
     brew list --cask | grep -q "^$c$" && log "✓ $c" || { log "Installing $c"; brew install --cask "$c"; }
@@ -58,11 +60,18 @@ setup_iterm2() {
   local PREFS_DIR="" TARGET=""
   local has_app=false
 
+  # Detect iTerm2 installation in standard locations or via Homebrew
   [[ -d "/Applications/iTerm.app" || -d "$HOME/Applications/iTerm.app" ]] && has_app=true
   if command -v brew &>/dev/null; then
     brew list --cask 2>/dev/null | grep -q '^iterm2$' && has_app=true
   fi
 
+  if [[ "$has_app" != true ]]; then
+    warn "iTerm2 not installed, skipping configuration"
+    return
+  fi
+
+  # Detect if custom prefs folder is being used
   if [[ "$(defaults read "$DOMAIN" LoadPrefsFromCustomFolder 2>/dev/null || echo 0)" == "1" ]]; then
     PREFS_DIR="$(defaults read "$DOMAIN" PrefsCustomFolder 2>/dev/null || echo "")"
   fi
@@ -76,7 +85,7 @@ setup_iterm2() {
 
   write() { defaults write "$TARGET" "$1" "${@:2}"; }
 
-  # Disable close/quit confirmation prompts
+  # Disable quit/close confirmations
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
     read -r -a parts <<< "$line"
@@ -119,6 +128,7 @@ wait_for_app() { # wait_for_app "Raycast" 5
   return 0
 }
 
+# Disable Spotlight shortcuts and open Raycast prefs (hotkey to be set manually)
 setup_raycast() {
   log "Setting up Raycast with ⌘ + Space…"
 
@@ -171,6 +181,99 @@ OSA
   warn "If macOS blocks keystrokes, grant Accessibility permissions to your terminal app in System Settings → Privacy & Security → Accessibility."
 }
 
+
+# Find the full path to an application bundle (.app).
+# Checks /Applications, ~/Applications, and Spotlight if available.
+find_app_path() {
+  local app="$1"
+  [[ "$app" == *.app ]] || app="${app}.app"
+
+  local p1="/Applications/$app" p2="$HOME/Applications/$app"
+  if [[ -d "$p1" ]]; then
+    command -v realpath &>/dev/null && realpath "$p1" 2>/dev/null || echo "$p1"
+    return 0
+  fi
+  if [[ -d "$p2" ]]; then
+    command -v realpath &>/dev/null && realpath "$p2" 2>/dev/null || echo "$p2"
+    return 0
+  fi
+
+  if command -v mdfind &>/dev/null; then
+    local found
+    found="$(/usr/bin/mdfind "kMDItemKind == 'Application' && kMDItemFSName == '$app'" 2>/dev/null | head -n1 || true)"
+    if [[ -n "$found" && -d "$found" ]]; then
+      command -v realpath &>/dev/null && realpath "$found" 2>/dev/null || echo "$found"
+      return 0
+    fi
+  fi
+  return 1
+}
+
+# Ensure that an app is configured as a login item with a specific hidden state
+ensure_login_item() {
+  local name="$1" hidden="$2" path
+  if ! path="$(find_app_path "${name}.app")"; then
+    warn "Login Item: ${name} not found"
+    return 1
+  fi
+
+  /usr/bin/osascript <<OSA >/dev/null 2>&1 || return 1
+tell application "System Events"
+  try
+    try
+      delete login item "${name}"
+    end try
+    make login item at end with properties {path:"${path}", hidden:${hidden}}
+  end try
+end tell
+OSA
+
+  # Verify the login item was persisted (TCC/privacy can block it)
+  /usr/bin/osascript <<OSA 2>/dev/null | grep -qx "true"
+tell application "System Events"
+  try
+    set ok to false
+    repeat with li in (every login item)
+      if name of li is equal to "${name}" then set ok to true
+    end repeat
+    return ok
+  on error
+    return false
+  end try
+end tell
+OSA
+}
+
+# Configure apps to start when log in
+setup_login_items() {
+  log "Setting up Login Items…"
+  local items=(
+    "DisplayLink Manager:true"
+    "Google Drive:true"
+    "KeePassXC:true"
+    "Rectangle:true"
+    "Raycast:true"
+  )
+
+  local ok=0 miss=0
+  for spec in "${items[@]}"; do
+    local name="${spec%%:*}" hidden="${spec##*:}"
+    if ensure_login_item "$name" "$hidden"; then
+      case "$name" in
+        Rectangle) defaults write com.knollsoft.Rectangle launchOnLogin -bool true 2>/dev/null || true ;;
+        Raycast)   defaults write com.raycast.macos       launchAtLogin -bool true 2>/dev/null || true ;;
+      esac
+      log "✓ Login Item: $name (hidden=${hidden})"; ((ok++))
+    else
+      warn "Failed Login Item: $name"; ((miss++))
+    fi
+  done
+
+  log "Login Items summary: ${ok} added, ${miss} failed"
+  log "Check in: System Settings → General → Login Items"
+}
+
+# Zsh/oh-my-zsh and common plugins
 setup_zsh() {
   log "Setting up Zsh & plugins…"
   [[ -d ~/.oh-my-zsh ]] || { log "Installing oh-my-zsh…"; sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; }
@@ -183,7 +286,7 @@ setup_zsh() {
   grep -q "zsh-autosuggestions" ~/.zshrc || \
     sed -i '' 's/plugins=(/&git docker pip python brew zsh-autosuggestions zsh-syntax-highlighting zsh-completions /' ~/.zshrc
 
-  # ---------- custom block with markers ----------
+  # --- custom block with markers ---
   if ! grep -q "# >>> macbook-setup >>>" ~/.zshrc; then
 cat >> ~/.zshrc << 'EOF'
 # >>> macbook-setup >>>
@@ -205,7 +308,7 @@ alias pip='pip3'
 EOF
   fi
 
-  # ---- Add update-mac() helper if missing ----
+  # Add update-mac() helper if missing
   if ! grep -q "update-mac()" ~/.zshrc; then
 cat >> ~/.zshrc << 'EOF'
 
@@ -236,6 +339,7 @@ EOF
   [[ $SHELL == /bin/zsh ]] || { log "Changing default shell to zsh"; chsh -s /bin/zsh; }
 }
 
+# Redirect screenshots to ~/Screenshots
 setup_screenshots_folder() {
   log "Redirecting screenshots to ~/Screenshots"
   mkdir -p ~/Screenshots
@@ -249,10 +353,10 @@ setup_macos_preferences() {
   killall Finder || true
 }
 
+# Global Git configuration (prompts for name/email)
 setup_git() {
   log "Configuring Git…"
 
-  # Detect current value (if any) to use as default
   local current_name current_email
   current_name=$(git config --global --get user.name || true)
   current_email=$(git config --global --get user.email || true)
@@ -305,6 +409,7 @@ setup_git() {
   log "✓ Git configured"
 }
 
+# Create SSH key (ed25519), add to agent, and copy pub key to clipboard
 setup_ssh_key() {
   log "Setting up SSH key…"
   local key=~/.ssh/id_ed25519; mkdir -p ~/.ssh && chmod 700 ~/.ssh
@@ -312,7 +417,6 @@ setup_ssh_key() {
     ssh-keygen -t ed25519 -C "$(git config --global user.email || echo user@example.com)" -f "$key" -N ""
     eval "$(ssh-agent -s)" && ssh-add --apple-use-keychain "$key"
   fi
-  # ---------- SSH config block with markers ----------
   grep -q "# >>> macbook-setup >>>" ~/.ssh/config 2>/dev/null || cat >> ~/.ssh/config << 'EOF'
 # >>> macbook-setup >>>
 Host *
@@ -337,8 +441,9 @@ show_summary() {
   echo; log "🎉 Setup finished"; echo
   echo "• Restart terminal ⇒  source ~/.zshrc"
   echo "• PostgreSQL 5432 | Redis 6379 running | Claude Code CLI available as 'claude'"
-  echo "• Spotlight disabled — manually set Raycast hotkey to ⌘ + Space in Raycast Preferences (Hotkey)"
-  warn "You may need to log out/in for keyboard shortcut changes to take effect"
+  echo "• Spotlight disabled — now set your Raycast hotkey in Raycast Preferences"
+  echo "• Login Items configured (hidden on login): DisplayLink Manager, Google Drive, KeePassXC, Rectangle, Raycast"
+  warn "You may need to log out/in for some changes (shortcuts, login items) to take effect"
 }
 
 main() {
@@ -350,6 +455,7 @@ main() {
   setup_iterm2
   install_claude_code
   setup_raycast
+  setup_login_items
   setup_zsh
   setup_screenshots_folder
   setup_macos_preferences
