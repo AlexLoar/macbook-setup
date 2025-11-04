@@ -5,7 +5,7 @@ An automated script to set up a new MacBook with development tools, essential ap
 ## 🚀 Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AlexLoar/macos-setup/main/setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/AlexLoar/macbook-setup/refs/heads/main/setup.sh | bash
 ```
 
 Or clone and run locally:
