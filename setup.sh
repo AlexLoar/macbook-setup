@@ -7,10 +7,22 @@ log()  { echo -e "${GREEN}==> $1${NC}"; }
 warn() { echo -e "${YELLOW}WARNING: $1${NC}"; }
 
 check_macos()   { [[ $(uname) == Darwin ]] || { echo -e "${RED}ERROR: macOS only${NC}"; exit 1; }; }
+
 check_rosetta() {
-  if [[ $(uname -m) == arm64 ]] && ! pgrep -q oahd; then
-    log "Installing Rosetta 2…"
-    softwareupdate --install-rosetta --agree-to-license
+  if [[ $(uname -m) == arm64 ]]; then
+    if ! /usr/bin/pgrep -q oahd 2>/dev/null; then
+      log "Installing Rosetta 2…"
+      softwareupdate --install-rosetta --agree-to-license || log "Rosetta may already be installed"
+    fi
+  fi
+}
+
+ensure_xcode_clt() {
+  if ! xcode-select -p &>/dev/null; then
+    log "Installing Xcode Command Line Tools…"
+    xcode-select --install || true
+    until xcode-select -p &>/dev/null; do sleep 2; done
+    log "✓ Xcode Command Line Tools installed"
   fi
 }
 
@@ -18,7 +30,15 @@ install_homebrew() {
   if ! command -v brew &>/dev/null; then
     log "Installing Homebrew…"
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    [[ $(uname -m) == arm64 ]] && { echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile; eval "$(/opt/homebrew/bin/brew shellenv)"; }
+
+    # Ensure brew is in PATH
+    if command -v /opt/homebrew/bin/brew &>/dev/null; then
+      eval "$(/opt/homebrew/bin/brew shellenv)"
+      echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+    fi
+    if command -v /usr/local/bin/brew &>/dev/null; then
+      eval "$(/usr/local/bin/brew shellenv)"
+    fi
   else
     log "Homebrew already installed"
   fi
@@ -41,15 +61,83 @@ install_cli_tools() {
   pgrep redis-server >/dev/null && log "✓ Redis running"     || warn "Redis failed"
 }
 
+# Finds the full path to an application bundle (.app)
+find_app_path() {
+  local app="$1"
+  [[ "$app" == *.app ]] || app="${app}.app"
+
+  local p1="/Applications/$app" p2="$HOME/Applications/$app"
+  if [[ -d "$p1" ]]; then
+    command -v realpath &>/dev/null && realpath "$p1" 2>/dev/null || echo "$p1"
+    return 0
+  fi
+  if [[ -d "$p2" ]]; then
+    command -v realpath &>/dev/null && realpath "$p2" 2>/dev/null || echo "$p2"
+    return 0
+  fi
+
+  if command -v mdfind &>/dev/null; then
+    local found
+    found="$(/usr/bin/mdfind "kMDItemKind == 'Application' && kMDItemFSName == '$app'" 2>/dev/null | head -n1 || true)"
+    if [[ -n "$found" && -d "$found" ]]; then
+      command -v realpath &>/dev/null && realpath "$found" 2>/dev/null || echo "$found"
+      return 0
+    fi
+  fi
+  return 1
+}
+
 install_gui_apps() {
   log "Installing GUI apps…"
+
+  # Mapping: Homebrew cask → Application bundle name
+  declare -A BUNDLE=(
+    [brave-browser]="Brave Browser"
+    [google-chrome]="Google Chrome"
+    [rectangle]="Rectangle"
+    [chatgpt]="ChatGPT"
+    [the-unarchiver]="The Unarchiver"
+    [vlc]="VLC"
+    [spotify]="Spotify"
+    [keepassxc]="KeePassXC"
+    [google-drive]="Google Drive"
+    [whatsapp]="WhatsApp"
+    [telegram]="Telegram"
+    [iterm2]="iTerm"
+    [calibre]="calibre"
+    [sublime-text]="Sublime Text"
+    [slack]="Slack"
+    [visual-studio-code]="Visual Studio Code"
+    [libreoffice]="LibreOffice"
+    [raycast]="Raycast"
+    [stats]="Stats"
+    [displaylink]="DisplayLink Manager"
+  )
+
   local casks=(
     brave-browser google-chrome rectangle chatgpt the-unarchiver vlc spotify keepassxc
     google-drive whatsapp telegram iterm2 calibre sublime-text slack visual-studio-code
     libreoffice raycast stats displaylink
   )
+
   for c in "${casks[@]}"; do
-    brew list --cask | grep -q "^$c$" && log "✓ $c" || { log "Installing $c"; brew install --cask "$c"; }
+    # Skip if cask already installed
+    if brew list --cask 2>/dev/null | grep -qx "$c"; then
+      log "✓ $c (Homebrew cask present)"
+      continue
+    fi
+
+    # Skip if manually installed .app exists
+    local bundle="${BUNDLE[$c]:-}"
+    [[ -z $bundle ]] && bundle="$(echo "$c" | sed -E 's/-/ /g; s/\b(.)/\U\1/g')"  # fallback heuristic
+    if find_app_path "${bundle}.app" >/dev/null 2>&1; then
+      log "✓ Found existing app: ${bundle}.app — skipping Homebrew install for $c"
+      continue
+    fi
+
+    # Install only if missing
+    log "Installing $c"
+    brew install --cask "$c" || warn "Failed to install $c"
   done
 }
 
@@ -60,8 +148,9 @@ setup_iterm2() {
   local PREFS_DIR="" TARGET=""
   local has_app=false
 
-  # Detect iTerm2 installation in standard locations or via Homebrew
-  [[ -d "/Applications/iTerm.app" || -d "$HOME/Applications/iTerm.app" ]] && has_app=true
+  if find_app_path "iTerm.app" >/dev/null 2>&1; then
+    has_app=true
+  fi
   if command -v brew &>/dev/null; then
     brew list --cask 2>/dev/null | grep -q '^iterm2$' && has_app=true
   fi
@@ -115,8 +204,7 @@ install_claude_code() {
     return
   fi
   npm install -g @anthropic-ai/claude-code
-  command -v claude &>/dev/null && log "✓ Claude Code installed" \
-    || warn "Claude Code installation failed"
+  command -v claude &>/dev/null && log "✓ Claude Code installed" || warn "Claude Code installation failed"
 }
 
 wait_for_app() { # wait_for_app "Raycast" 5
@@ -128,35 +216,33 @@ wait_for_app() { # wait_for_app "Raycast" 5
   return 0
 }
 
+disable_spotlight_hotkeys() {
+  log "Disabling Spotlight keyboard shortcuts…"
+  local PLIST="$HOME/Library/Preferences/com.apple.symbolichotkeys.plist"
+  local ids=(64 65) # 64 = ⌘Space, 65 = ⌥⌘Space
+
+  for id in "${ids[@]}"; do
+    /usr/libexec/PlistBuddy -c "Set :AppleSymbolicHotKeys:$id:enabled false" "$PLIST" 2>/dev/null \
+      || /usr/libexec/PlistBuddy -c "Add :AppleSymbolicHotKeys:$id dict" "$PLIST" 2>/dev/null
+    /usr/libexec/PlistBuddy -c "Add :AppleSymbolicHotKeys:$id:enabled bool false" "$PLIST" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Add :AppleSymbolicHotKeys:$id:value dict" "$PLIST" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Add :AppleSymbolicHotKeys:$id:value:type string standard" "$PLIST" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Add :AppleSymbolicHotKeys:$id:value:parameters array" "$PLIST" 2>/dev/null || true
+  done
+
+  killall Dock 2>/dev/null || true
+}
+
 # Disable Spotlight shortcuts and open Raycast prefs (hotkey to be set manually)
 setup_raycast() {
   log "Setting up Raycast with ⌘ + Space…"
 
-  if ! brew list --cask | grep -q '^raycast$' && [[ ! -d "/Applications/Raycast.app" && ! -d "$HOME/Applications/Raycast.app" ]]; then
+  if ! brew list --cask 2>/dev/null | grep -q '^raycast$' && ! find_app_path "Raycast.app" >/dev/null 2>&1; then
     warn "Raycast not installed, skipping configuration"
     return
   fi
 
-  defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict || true
-
-  log "Disabling Spotlight keyboard shortcuts…"
-  defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 64 '{
-    enabled = 0;
-    value = {
-      parameters = (32, 49, 1048576);
-      type = "standard";
-    };
-  }' || warn "Failed to disable Spotlight hotkey (ID 64)"
-
-  defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 65 '{
-    enabled = 0;
-    value = {
-      parameters = (32, 49, 1572864);
-      type = "standard";
-    };
-  }' || warn "Failed to disable Spotlight hotkey (ID 65)"
-
-  killall Dock || true
+  disable_spotlight_hotkeys
 
   log "Opening Raycast Preferences so you can assign ⌘ + Space…"
   open -g -a "Raycast" 2>/dev/null || warn "Could not open Raycast automatically"
@@ -184,32 +270,6 @@ OSA
 
 # Find the full path to an application bundle (.app).
 # Checks /Applications, ~/Applications, and Spotlight if available.
-find_app_path() {
-  local app="$1"
-  [[ "$app" == *.app ]] || app="${app}.app"
-
-  local p1="/Applications/$app" p2="$HOME/Applications/$app"
-  if [[ -d "$p1" ]]; then
-    command -v realpath &>/dev/null && realpath "$p1" 2>/dev/null || echo "$p1"
-    return 0
-  fi
-  if [[ -d "$p2" ]]; then
-    command -v realpath &>/dev/null && realpath "$p2" 2>/dev/null || echo "$p2"
-    return 0
-  fi
-
-  if command -v mdfind &>/dev/null; then
-    local found
-    found="$(/usr/bin/mdfind "kMDItemKind == 'Application' && kMDItemFSName == '$app'" 2>/dev/null | head -n1 || true)"
-    if [[ -n "$found" && -d "$found" ]]; then
-      command -v realpath &>/dev/null && realpath "$found" 2>/dev/null || echo "$found"
-      return 0
-    fi
-  fi
-  return 1
-}
-
-# Ensure that an app is configured as a login item with a specific hidden state
 ensure_login_item() {
   local name="$1" hidden="$2" path
   if ! path="$(find_app_path "${name}.app")"; then
@@ -276,7 +336,11 @@ setup_login_items() {
 # Zsh/oh-my-zsh and common plugins
 setup_zsh() {
   log "Setting up Zsh & plugins…"
-  [[ -d ~/.oh-my-zsh ]] || { log "Installing oh-my-zsh…"; sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; }
+  [[ -d ~/.oh-my-zsh ]] || {
+    log "Installing oh-my-zsh…"
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+  }
+
   local ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
   for repo in zsh-users/{zsh-autosuggestions,zsh-syntax-highlighting,zsh-completions}; do
     local name
@@ -412,11 +476,21 @@ setup_git() {
 # Create SSH key (ed25519), add to agent, and copy pub key to clipboard
 setup_ssh_key() {
   log "Setting up SSH key…"
-  local key=~/.ssh/id_ed25519; mkdir -p ~/.ssh && chmod 700 ~/.ssh
+  local key=~/.ssh/id_ed25519
+  mkdir -p ~/.ssh && chmod 700 ~/.ssh
+
   if [[ ! -f $key ]]; then
     ssh-keygen -t ed25519 -C "$(git config --global user.email || echo user@example.com)" -f "$key" -N ""
-    eval "$(ssh-agent -s)" && ssh-add --apple-use-keychain "$key"
+
+    # Add to agent (with fallbacks for older versions)
+    if pgrep -x ssh-agent >/dev/null; then
+      ssh-add --apple-use-keychain "$key" 2>/dev/null || ssh-add -K "$key" 2>/dev/null || ssh-add "$key"
+    else
+      eval "$(ssh-agent -s)"
+      ssh-add --apple-use-keychain "$key" 2>/dev/null || ssh-add -K "$key" 2>/dev/null || ssh-add "$key"
+    fi
   fi
+
   grep -q "# >>> macbook-setup >>>" ~/.ssh/config 2>/dev/null || cat >> ~/.ssh/config << 'EOF'
 # >>> macbook-setup >>>
 Host *
@@ -425,16 +499,28 @@ Host *
   IdentityFile ~/.ssh/id_ed25519
 # <<< macbook-setup <<<
 EOF
+
   pbcopy < "${key}.pub" && log "SSH public key copied to clipboard"
 }
 
 install_vscode_extensions() {
   log "Ensuring VS Code CLI…"
   open -g -a "Visual Studio Code" || true
-  for _ in {1..15}; do command -v code &>/dev/null && break || sleep 2; done
-  command -v code &>/dev/null || { warn "'code' CLI not found; install it via VS Code → Command Palette → Shell Command: Install 'code' command in PATH"; return; }
+
+  # Wait up to ~60s for the CLI to be available
+  for i in {1..30}; do
+    command -v code &>/dev/null && break || sleep 2
+  done
+
+  command -v code &>/dev/null || {
+    warn "'code' CLI not found; install it via VS Code → Command Palette → Shell Command: Install 'code' command in PATH"
+    return
+  }
+
   local exts=(ms-python.python ms-python.vscode-pylance batisteo.vscode-django bibhasdn.django-html charliermarsh.ruff)
-  for e in "${exts[@]}"; do code --install-extension "$e" --force && log "✓ $e"; done
+  for e in "${exts[@]}"; do
+    code --install-extension "$e" --force && log "✓ $e"
+  done
 }
 
 show_summary() {
@@ -448,7 +534,9 @@ show_summary() {
 
 main() {
   log "Starting macOS setup…"
-  check_macos; check_rosetta
+  check_macos
+  check_rosetta
+  ensure_xcode_clt
   install_homebrew
   install_cli_tools
   install_gui_apps
@@ -465,4 +553,5 @@ main() {
   brew cleanup -s && brew autoremove
   show_summary
 }
+
 main
