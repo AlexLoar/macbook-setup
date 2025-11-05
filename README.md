@@ -30,7 +30,7 @@ chmod +x setup.sh
 - **Browsers**: Brave, Chrome
 - **Productivity**: Rectangle, Raycast, Stats, Google Drive
 - **Communication**: Slack, WhatsApp, Telegram
-- **Development**: VS Code, iTerm2, Sublime Text
+- **Development**: VS Code, iTerm2, Sublime Text, Postman
 - **Multimedia**: VLC, Spotify, NoTunes
 - **Others**: KeePassXC, Calibre, LibreOffice, ChatGPT, The Unarchiver  
 

@@ -90,51 +90,52 @@ find_app_path() {
 install_gui_apps() {
   log "Installing GUI apps…"
 
-  # Mapping: Homebrew cask → Application bundle name
-  declare -A BUNDLE=(
-    [brave-browser]="Brave Browser"
-    [google-chrome]="Google Chrome"
-    [rectangle]="Rectangle"
-    [chatgpt]="ChatGPT"
-    [the-unarchiver]="The Unarchiver"
-    [vlc]="VLC"
-    [spotify]="Spotify"
-    [keepassxc]="KeePassXC"
-    [google-drive]="Google Drive"
-    [whatsapp]="WhatsApp"
-    [telegram]="Telegram"
-    [iterm2]="iTerm"
-    [calibre]="calibre"
-    [sublime-text]="Sublime Text"
-    [slack]="Slack"
-    [visual-studio-code]="Visual Studio Code"
-    [libreoffice]="LibreOffice"
-    [raycast]="Raycast"
-    [stats]="Stats"
-    [displaylink]="DisplayLink Manager"
-    [notunes]="NoTunes"
-  )
-
+  # List of casks to ensure are installed (Bash 3.2-safe)
   local casks=(
     brave-browser google-chrome rectangle chatgpt the-unarchiver vlc spotify keepassxc
     google-drive whatsapp telegram iterm2 calibre sublime-text slack visual-studio-code
-    libreoffice raycast stats displaylink notunes
+    libreoffice raycast stats displaylink notunes postman
   )
 
+  # Map cask → .app bundle name without associative arrays
+  bundle_for_cask() {
+    case "$1" in
+      brave-browser)        echo "Brave Browser" ;;
+      google-chrome)        echo "Google Chrome" ;;
+      rectangle)            echo "Rectangle" ;;
+      chatgpt)              echo "ChatGPT" ;;
+      the-unarchiver)       echo "The Unarchiver" ;;
+      vlc)                  echo "VLC" ;;
+      spotify)              echo "Spotify" ;;
+      keepassxc)            echo "KeePassXC" ;;
+      google-drive)         echo "Google Drive" ;;
+      whatsapp)             echo "WhatsApp" ;;
+      telegram)             echo "Telegram" ;;
+      iterm2)               echo "iTerm" ;;
+      calibre)              echo "calibre" ;;
+      sublime-text)         echo "Sublime Text" ;;
+      slack)                echo "Slack" ;;
+      visual-studio-code)   echo "Visual Studio Code" ;;
+      libreoffice)          echo "LibreOffice" ;;
+      raycast)              echo "Raycast" ;;
+      stats)                echo "Stats" ;;
+      displaylink)          echo "DisplayLink Manager" ;;
+      notunes)              echo "NoTunes" ;;
+      postman)              echo "Postman" ;;
+      *)                    echo "$1" | sed -E 's/-/ /g; s/\b(.)/\U\1/g' ;;
+    esac
+  }
+
   for c in "${casks[@]}"; do
-    # 1) Skip if cask already installed
+    # 1) Skip if the cask is already installed via Homebrew
     if brew list --cask 2>/dev/null | grep -qx "$c"; then
       log "✓ $c (Homebrew cask present)"
       continue
     fi
 
-    # 2) Is there an existing .app bundle (manually installed)?
-    local bundle="${BUNDLE[$c]-}"
-    if [[ -z "$bundle" ]]; then
-      # Safe heuristic: generate the bundle name if it's not mapped
-      bundle="$(echo "$c" | sed -E 's/-/ /g; s/\b(.)/\U\1/g')"
-    fi
-
+    # 2) Skip if a matching .app bundle already exists (manually installed)
+    local bundle
+    bundle="$(bundle_for_cask "$c")"
     if find_app_path "${bundle}.app" >/dev/null 2>&1; then
       log "✓ Found existing app: ${bundle}.app — skipping Homebrew install for $c"
       continue
