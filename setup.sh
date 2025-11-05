@@ -112,30 +112,35 @@ install_gui_apps() {
     [raycast]="Raycast"
     [stats]="Stats"
     [displaylink]="DisplayLink Manager"
+    [notunes]="NoTunes"
   )
 
   local casks=(
     brave-browser google-chrome rectangle chatgpt the-unarchiver vlc spotify keepassxc
     google-drive whatsapp telegram iterm2 calibre sublime-text slack visual-studio-code
-    libreoffice raycast stats displaylink
+    libreoffice raycast stats displaylink notunes
   )
 
   for c in "${casks[@]}"; do
-    # Skip if cask already installed
+    # 1) Skip if cask already installed
     if brew list --cask 2>/dev/null | grep -qx "$c"; then
       log "✓ $c (Homebrew cask present)"
       continue
     fi
 
-    # Skip if manually installed .app exists
-    local bundle="${BUNDLE[$c]:-}"
-    [[ -z $bundle ]] && bundle="$(echo "$c" | sed -E 's/-/ /g; s/\b(.)/\U\1/g')"  # fallback heuristic
+    # 2) Is there an existing .app bundle (manually installed)?
+    local bundle="${BUNDLE[$c]-}"
+    if [[ -z "$bundle" ]]; then
+      # Safe heuristic: generate the bundle name if it's not mapped
+      bundle="$(echo "$c" | sed -E 's/-/ /g; s/\b(.)/\U\1/g')"
+    fi
+
     if find_app_path "${bundle}.app" >/dev/null 2>&1; then
       log "✓ Found existing app: ${bundle}.app — skipping Homebrew install for $c"
       continue
     fi
 
-    # Install only if missing
+    # 3) Install if neither cask nor bundle exists
     log "Installing $c"
     brew install --cask "$c" || warn "Failed to install $c"
   done
@@ -313,6 +318,7 @@ setup_login_items() {
     "KeePassXC:true"
     "Rectangle:true"
     "Raycast:true"
+    "NoTunes:true"
   )
 
   local ok=0 miss=0
@@ -524,11 +530,13 @@ install_vscode_extensions() {
 }
 
 show_summary() {
-  echo; log "🎉 Setup finished"; echo
+  echo
+  log "🎉 Setup finished"
+  echo
   echo "• Restart terminal ⇒  source ~/.zshrc"
   echo "• PostgreSQL 5432 | Redis 6379 running | Claude Code CLI available as 'claude'"
-  echo "• Spotlight disabled — now set your Raycast hotkey in Raycast Preferences"
-  echo "• Login Items configured (hidden on login): DisplayLink Manager, Google Drive, KeePassXC, Rectangle, Raycast"
+  echo "• Spotlight hotkeys disabled — set Raycast hotkey to ⌘ Space in Preferences"
+  echo "• Login Items configured (hidden on login): DisplayLink Manager, Google Drive, KeePassXC, Rectangle, Raycast, NoTunes"
   warn "You may need to log out/in for some changes (shortcuts, login items) to take effect"
 }
 

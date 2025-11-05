@@ -31,7 +31,7 @@ chmod +x setup.sh
 - **Productivity**: Rectangle, Raycast, Stats, Google Drive
 - **Communication**: Slack, WhatsApp, Telegram
 - **Development**: VS Code, iTerm2, Sublime Text
-- **Multimedia**: VLC, Spotify
+- **Multimedia**: VLC, Spotify, NoTunes
 - **Others**: KeePassXC, Calibre, LibreOffice, ChatGPT, The Unarchiver  
 
 ### VS Code Extensions
