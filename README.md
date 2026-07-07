@@ -32,6 +32,7 @@ chmod +x setup.sh
 - **Communication**: Slack, WhatsApp, Telegram
 - **Development**: VS Code, iTerm2, Sublime Text, Postman
 - **Multimedia**: VLC, Spotify, NoTunes
+- **Utilities**: DisplayLink Manager, [Bluesnooze](https://github.com/odlp/bluesnooze) (disables Bluetooth on sleep)
 - **Others**: KeePassXC, Calibre, LibreOffice, ChatGPT, The Unarchiver  
 
 ### VS Code Extensions
@@ -72,11 +73,13 @@ chmod +x setup.sh
 
 ### Login Items (auto-start apps)
 The following applications are added to **System Settings → General → Login Items**:
-- DisplayLink Manager  
-- Google Drive   
-- KeePassXC   
-- Rectangle   
-- Raycast 
+- DisplayLink Manager
+- Google Drive
+- KeePassXC
+- Rectangle
+- Raycast
+- NoTunes
+- Bluesnooze 
 
 ## 🛠️ Requirements
 
