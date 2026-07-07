@@ -94,7 +94,7 @@ install_gui_apps() {
   local casks=(
     brave-browser google-chrome rectangle chatgpt the-unarchiver vlc spotify keepassxc
     google-drive whatsapp telegram iterm2 calibre sublime-text slack visual-studio-code
-    libreoffice raycast stats displaylink notunes postman
+    libreoffice raycast stats displaylink notunes postman bluesnooze
   )
 
   # Map cask → .app bundle name without associative arrays
@@ -122,6 +122,7 @@ install_gui_apps() {
       displaylink)          echo "DisplayLink Manager" ;;
       notunes)              echo "NoTunes" ;;
       postman)              echo "Postman" ;;
+      bluesnooze)           echo "Bluesnooze" ;;
       *)                    echo "$1" | sed -E 's/-/ /g; s/\b(.)/\U\1/g' ;;
     esac
   }
@@ -320,6 +321,7 @@ setup_login_items() {
     "Rectangle:true"
     "Raycast:true"
     "NoTunes:true"
+    "Bluesnooze:true"
   )
 
   local ok=0 miss=0
@@ -537,7 +539,7 @@ show_summary() {
   echo "• Restart terminal ⇒  source ~/.zshrc"
   echo "• PostgreSQL 5432 | Redis 6379 running | Claude Code CLI available as 'claude'"
   echo "• Spotlight hotkeys disabled — set Raycast hotkey to ⌘ Space in Preferences"
-  echo "• Login Items configured (hidden on login): DisplayLink Manager, Google Drive, KeePassXC, Rectangle, Raycast, NoTunes"
+  echo "• Login Items configured (hidden on login): DisplayLink Manager, Google Drive, KeePassXC, Rectangle, Raycast, NoTunes, Bluesnooze"
   warn "You may need to log out/in for some changes (shortcuts, login items) to take effect"
 }
 
