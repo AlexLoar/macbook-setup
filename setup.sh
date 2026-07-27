@@ -43,7 +43,7 @@ install_homebrew() {
     log "Homebrew already installed"
   fi
   brew analytics off
-  log "Updating Homebrew…"; brew update && brew upgrade
+  log "Updating Homebrew…"; brew update && brew upgrade -y
 }
 
 install_cli_tools() {
@@ -393,7 +393,7 @@ update-mac() {
   brew update
 
   echo "⬆️  Upgrading apps..."
-  brew upgrade
+  brew upgrade -y
 
   echo "🧹 Cleaning up old versions..."
   brew cleanup
